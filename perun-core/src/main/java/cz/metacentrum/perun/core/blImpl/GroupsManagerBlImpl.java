@@ -2183,7 +2183,7 @@ public class GroupsManagerBlImpl implements GroupsManagerBl {
 	 */
 	private void categorizeMembersForLightweightSynchronization(PerunSession sess, ExtSource loginSource, ExtSource memberSource, List<RichMember> actualGroupMembers, List<Candidate> candidatesToAdd, List<RichMember> membersToRemove, List<String> skippedMembers, List<Map<String,String>> subjects) throws InternalErrorException, ExtSourceNotExistsException {
 		// Create map where key is login of member in loginSource and value is RichMember
-		Map<String, RichMember> loginsOfMembers = getMapOfLoginsAndRichMembers(loginSource, actualGroupMembers);
+		Map<String, RichMember> loginsOfMembers = getMapOfLoginsAndRichMembers(loginSource, actualGroupMembers, membersToRemove);
 
 		// Try to find users by login
 		for (Map<String, String> subject: subjects) {
@@ -2266,7 +2266,7 @@ public class GroupsManagerBlImpl implements GroupsManagerBl {
 								  List<String> skippedMembers, List<Map<String,String>> subjects, List<String> overwriteUserAttributesList) throws InternalErrorException, ExtSourceNotExistsException {
 
 		// Create map where key is login of member in loginSource and value is RichMember
-		Map<String, RichMember> loginsOfMembers = getMapOfLoginsAndRichMembers(loginSource, actualGroupMembers);
+		Map<String, RichMember> loginsOfMembers = getMapOfLoginsAndRichMembers(loginSource, actualGroupMembers, membersToRemove);
 
 		// Try to find users by login
 		for (Map<String, String> subject: subjects) {
@@ -2839,22 +2839,28 @@ public class GroupsManagerBlImpl implements GroupsManagerBl {
 
 	/**
 	 * Get map where key is login of member in ExtSource and value is RichMember
-	 *
+	 * Add RichMember to membersToRemove when RichMember doesn`t have ExtSource as loginSource
 	 * @param loginSource
 	 * @param actualGroupMembers
+	 * @param membersToRemove
 	 *
 	 * @return map of logins and rich members
 	 */
-	private Map<String, RichMember> getMapOfLoginsAndRichMembers(ExtSource loginSource, List<RichMember> actualGroupMembers) {
+	private Map<String, RichMember> getMapOfLoginsAndRichMembers(ExtSource loginSource, List<RichMember> actualGroupMembers, List<RichMember> membersToRemove) {
 		// Create map where key is login of member in external source and value is RichMember
 		Map<String, RichMember> loginsOfMembers = new HashMap<>();
 		for (RichMember actualMember: actualGroupMembers) {
 			List<UserExtSource> userExtSources = actualMember.getUserExtSources();
+			boolean hasRichMemberExtSource = false;
 			for (UserExtSource ues: userExtSources) {
 				if (ues.getExtSource().equals(loginSource)) {
+					hasRichMemberExtSource = true;
 					loginsOfMembers.put(ues.getLogin(), actualMember);
 					break;
 				}
+			}
+			if (!hasRichMemberExtSource) {
+				membersToRemove.add(actualMember);
 			}
 		}
 		return loginsOfMembers;
