@@ -1,5 +1,7 @@
 package cz.metacentrum.perun.core.api;
 
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 
@@ -825,6 +827,12 @@ public interface GroupsManager {
 	 */
 	List<RichMember> getParentGroupRichMembersWithAttributes(PerunSession sess, Group group) throws InternalErrorException, PrivilegeException, GroupNotExistsException;
 
+	Connection getConnection();
+	void insertFiveThousandMembers();
+	void insertFiftyMembers();
+	void deleteFiftyMembers();
+	void updateFiftyMembers();
+	void deleteAllMembers();
 	/**
 	 * Synchronizes the group with the external group.
 	 *
@@ -835,6 +843,7 @@ public interface GroupsManager {
 	 * @throws PrivilegeException
 	 * @throws GroupSynchronizationAlreadyRunningException
 	 */
+
 	void forceGroupSynchronization(PerunSession sess, Group group) throws InternalErrorException, GroupNotExistsException, PrivilegeException, GroupSynchronizationAlreadyRunningException;
 
 	/**

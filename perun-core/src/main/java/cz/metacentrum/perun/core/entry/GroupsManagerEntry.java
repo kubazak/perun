@@ -2,6 +2,10 @@ package cz.metacentrum.perun.core.entry;
 
 import cz.metacentrum.perun.core.api.*;
 
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -13,6 +17,9 @@ import cz.metacentrum.perun.core.bl.GroupsManagerBl;
 import cz.metacentrum.perun.core.bl.PerunBl;
 import cz.metacentrum.perun.core.impl.Utils;
 import cz.metacentrum.perun.core.implApi.GroupsManagerImplApi;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.Objects;
 
 /**
@@ -22,9 +29,10 @@ import java.util.Objects;
  * @author Slavek Licehammer glory@ics.muni.cz
  */
 public class GroupsManagerEntry implements GroupsManager {
-
+	private final static Logger log = LoggerFactory.getLogger(GroupsManagerEntry.class);
 	private GroupsManagerBl groupsManagerBl;
 	private PerunBl perunBl;
+	private static int differentChar = 1;
 
 	public GroupsManagerEntry(PerunBl perunBl) {
 		this.perunBl = perunBl;
@@ -880,6 +888,119 @@ public class GroupsManagerEntry implements GroupsManager {
 				}
 
 		return getPerunBl().getMembersManagerBl().filterOnlyAllowedAttributes(sess, getGroupsManagerBl().getParentGroupRichMembersWithAttributes(sess, group), group, true);
+	}
+
+	@Override
+	public Connection getConnection() {
+		final String url = "jdbc:postgresql://localhost:5432/testoptimalizationimport";
+		final String user = "conidea";
+		final String password = "perun";
+		try {
+			Connection conn = DriverManager.getConnection(url, user, password);
+			return conn;
+		} catch (SQLException e) {
+			log.error(e.toString());
+		}
+		return null;
+	}
+
+	@Override
+	public void insertFiveThousandMembers() {
+		Connection conn = getConnection();
+		String SQL = "INSERT INTO users(login, firstname, lastname, email, phone, address, workplace) " + "VALUES(?, ?, ?, ?, ?, ?, ?)";
+
+		for(int i = 0; i < 20000;i++) {
+			try {
+				PreparedStatement st = conn.prepareStatement(SQL);
+				st.setString(1, Integer.toString(i));
+				st.setString(2, "Franta-" + i);
+				st.setString(3, "Flinta-"+i);
+				st.setString(4, "Franta-Flinta-" + i + "@example.com");
+				st.setString(5, "123456789");
+				st.setString(6, "Some address");
+				st.setString(7,"room-" + i);
+				st.executeUpdate();
+				st.close();
+			} catch (SQLException e) {
+				log.error(e.toString());
+			}
+		}
+		try {
+			conn.close();
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+	}
+
+	@Override
+	public void insertFiftyMembers() {
+		insertFiftyMembers("");
+	}
+	public void insertFiftyMembers(String room) {
+		Connection conn = getConnection();
+		String SQL = "INSERT INTO users(login, firstname, lastname, email, phone, address, workplace) " + "VALUES(?, ?, ?, ?, ?, ?, ?)";
+
+		for(int i = 20000; i < 20100;i++) {
+			try {
+				PreparedStatement st = conn.prepareStatement(SQL);
+				st.setString(1, Integer.toString(i));
+				st.setString(2, "Franta-" + i);
+				st.setString(3, "Flinta-"+i);
+				st.setString(4, "Franta-Flinta-" + i + "@example.com");
+				st.setString(5, "123456789");
+				st.setString(6, "Some address");
+				st.setString(7,"room-" + i + room);
+				st.executeUpdate();
+				st.close();
+			} catch (SQLException e) {
+				log.error(e.getSQLState());
+			}
+		}
+		try {
+			conn.close();
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+
+	}
+
+
+
+	@Override
+	public void deleteFiftyMembers() {
+		Connection conn = getConnection();
+		String SQL = "delete from users where to_number(login, '9999') >19999";
+		try {
+			PreparedStatement st = conn.prepareStatement(SQL);
+			st.executeUpdate();
+			st.close();
+			conn.close();
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+	}
+
+	@Override
+	public void updateFiftyMembers() {
+		deleteFiftyMembers();
+		insertFiftyMembers(Integer.toString(differentChar));
+		differentChar++;
+
+
+	}
+
+	@Override
+	public void deleteAllMembers() {
+		Connection conn = getConnection();
+		String SQL = "delete from users";
+		try {
+			PreparedStatement st = conn.prepareStatement(SQL);
+			st.executeUpdate();
+			conn.close();
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+
 	}
 
 

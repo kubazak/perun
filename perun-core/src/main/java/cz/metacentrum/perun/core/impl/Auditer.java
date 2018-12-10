@@ -177,7 +177,7 @@ public class Auditer {
 	 */
 	public void log(PerunSession sess, AuditEvent event) {
 
-		if(TransactionSynchronizationManager.isActualTransactionActive()) {
+		/*if(TransactionSynchronizationManager.isActualTransactionActive()) {
 			log.trace("Auditer stores audit message to current transaction. Message: {}.", event.getMessage());
 			List<List<List<AuditerMessage>>> topLevelTransactions = (List<List<List<AuditerMessage>>>) TransactionSynchronizationManager.getResource(this);
 			if (topLevelTransactions == null) {
@@ -191,7 +191,7 @@ public class Auditer {
 			messages.add(new AuditerMessage(sess, event));
 		} else {
 			this.storeMessageToDb(sess, event);
-		}
+		}*/
 	}
 
 	/**

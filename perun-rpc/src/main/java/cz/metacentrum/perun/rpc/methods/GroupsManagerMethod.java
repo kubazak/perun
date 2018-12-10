@@ -1,11 +1,22 @@
 package cz.metacentrum.perun.rpc.methods;
 
 import cz.metacentrum.perun.core.api.Attribute;
+
+import java.io.FileNotFoundException;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.UnsupportedEncodingException;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import cz.metacentrum.perun.core.api.Group;
+import cz.metacentrum.perun.core.api.GroupsManager;
 import cz.metacentrum.perun.core.api.Member;
 import cz.metacentrum.perun.core.api.MemberGroupStatus;
 import cz.metacentrum.perun.core.api.RichGroup;
@@ -14,10 +25,16 @@ import cz.metacentrum.perun.core.api.RichUser;
 import cz.metacentrum.perun.core.api.User;
 import cz.metacentrum.perun.core.api.Vo;
 import cz.metacentrum.perun.core.api.exceptions.PerunException;
+import cz.metacentrum.perun.core.blImpl.GroupsManagerBlImpl;
+import cz.metacentrum.perun.core.entry.GroupsManagerEntry;
 import cz.metacentrum.perun.rpc.ApiCaller;
 import cz.metacentrum.perun.rpc.ManagerMethod;
 import cz.metacentrum.perun.core.api.exceptions.RpcException;
 import cz.metacentrum.perun.rpc.deserializer.Deserializer;
+
+import org.infinispan.distribution.group.impl.GroupManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public enum GroupsManagerMethod implements ManagerMethod {
 
@@ -820,12 +837,122 @@ public enum GroupsManagerMethod implements ManagerMethod {
 	 * @param group int Group <code>id</code>
 	 */
 	forceGroupSynchronization {
+		private void isSynchronize() {
+			GroupsManagerBlImpl.isRunning = true;
+			while(GroupsManagerBlImpl.isRunning) {
+				try {
+					Thread.sleep(1000);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+			}
+
+		}
+
+		private void writeToFile(String fileName, String whatWrite) {
+			FileWriter fileWriter = null;
+			try {
+				fileWriter = new FileWriter("/home/zakja/"+fileName);
+				fileWriter.write(whatWrite);
+				fileWriter.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+
+		}
 
 		@Override
 		public Void call(ApiCaller ac, Deserializer parms) throws PerunException {
+			Logger log = LoggerFactory.getLogger(GroupsManagerMethod.class);
 
-			ac.getGroupsManager().forceGroupSynchronization(ac.getSession(),
+			GroupsManager gm = ac.getGroupsManager();
+			gm.synchronizeGroups(ac.getSession());
+			log.error("Insert 20000");
+			for(int i = 0; i < 50; i++) {
+
+				gm.deleteAllMembers();
+				ac.getGroupsManager().forceGroupSynchronization(ac.getSession(),
 					ac.getGroupById(parms.readInt("group")));
+				isSynchronize();
+
+				gm.insertFiveThousandMembers();
+				try {
+					Thread.sleep(5000);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+
+				ac.getGroupsManager().forceGroupSynchronization(ac.getSession(),
+					ac.getGroupById(parms.readInt("group")));
+
+				isSynchronize();
+
+			}
+			List t = GroupsManagerBlImpl.timeList;
+			StringBuilder s = new StringBuilder();
+			for(int i = 0; i < GroupsManagerBlImpl.timeList.size(); i++) {
+				if (i % 2 == 1) {
+					s.append(t.get(i));
+					s.append(",");
+				}
+			}
+			writeToFile("Insert20000.csv", s.toString());
+			GroupsManagerBlImpl.timeList.removeAll(GroupsManagerBlImpl.timeList);
+			log.error("Insert and Delete 100");
+			for(int i = 0; i < 50; i++) {
+				gm.insertFiftyMembers();
+
+
+				ac.getGroupsManager().forceGroupSynchronization(ac.getSession(),
+					ac.getGroupById(parms.readInt("group")));
+				isSynchronize();
+
+				gm.deleteFiftyMembers();
+
+
+				ac.getGroupsManager().forceGroupSynchronization(ac.getSession(),
+					ac.getGroupById(parms.readInt("group")));
+				isSynchronize();
+
+			}
+			s = new StringBuilder();
+			for(int i = 0; i < GroupsManagerBlImpl.timeList.size(); i++) {
+				s.append(t.get(i));
+				s.append(",");
+			}
+			writeToFile("InsertAndDelete100.csv", s.toString());
+			GroupsManagerBlImpl.timeList.removeAll(GroupsManagerBlImpl.timeList);
+			log.error("Update100");
+			for(int i = 0; i < 50; i++) {
+				gm.updateFiftyMembers();
+
+				ac.getGroupsManager().forceGroupSynchronization(ac.getSession(),
+					ac.getGroupById(parms.readInt("group")));
+				isSynchronize();
+
+			}
+			s = new StringBuilder();
+			for(int i = 0; i < GroupsManagerBlImpl.timeList.size(); i++) {
+				s.append(t.get(i));
+				s.append(",");
+			}
+			writeToFile("update100.csv", s.toString());
+			GroupsManagerBlImpl.timeList.removeAll(GroupsManagerBlImpl.timeList);
+			log.error("Nothing");
+			for(int i = 0; i < 50; i++) {
+				ac.getGroupsManager().forceGroupSynchronization(ac.getSession(),
+					ac.getGroupById(parms.readInt("group")));
+				isSynchronize();
+			}
+
+			s = new StringBuilder();
+			for(int i = 0; i < GroupsManagerBlImpl.timeList.size(); i++) {
+				s.append(t.get(i));
+				s.append(",");
+			}
+			writeToFile("nothing.csv", s.toString());
+			GroupsManagerBlImpl.timeList.removeAll(GroupsManagerBlImpl.timeList);
+
 			return null;
 		}
 	},

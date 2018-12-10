@@ -1432,6 +1432,10 @@ public class GroupsManagerBlImpl implements GroupsManagerBl {
 	/**
 	 * This method run in separate transaction.
 	 */
+
+	public static volatile boolean isRunning = true;
+	public static volatile List<Long> timeList = new ArrayList<>();
+
 	@Override
 	public List<String> synchronizeGroup(PerunSession sess, Group group) throws InternalErrorException, AttributeNotExistsException, WrongAttributeAssignmentException, ExtSourceNotExistsException, WrongAttributeValueException, WrongReferenceAttributeValueException, GroupNotExistsException {
 		//needed variables for whole method
@@ -1440,6 +1444,7 @@ public class GroupsManagerBlImpl implements GroupsManagerBl {
 		ExtSource membersSource = null;
 
 		try {
+			Long start = System.currentTimeMillis();
 			log.debug("Group synchronization {}: started.", group);
 
 			// Initialization of group extSource
@@ -1502,6 +1507,7 @@ public class GroupsManagerBlImpl implements GroupsManagerBl {
 			}
 
 			log.info("Group synchronization {}: ended.", group);
+			timeList.add(System.currentTimeMillis()-start);
 		} finally {
 			closeExtSourcesAfterSynchronization(membersSource, source);
 		}
@@ -1518,6 +1524,7 @@ public class GroupsManagerBlImpl implements GroupsManagerBl {
 	 */
 	@Override
 	public void forceGroupSynchronization(PerunSession sess, Group group) throws GroupSynchronizationAlreadyRunningException, InternalErrorException {
+
 		//Check if the group is not currently in synchronization process
 		if(poolOfGroupsToBeSynchronized.putJobIfAbsent(group, true)) {
 			log.debug("Scheduling synchronization for the group {} by force!", group);
@@ -1673,7 +1680,7 @@ public class GroupsManagerBlImpl implements GroupsManagerBl {
 
 					//synchronize Group and get information about skipped Members
 					List<String> skippedMembers = perunBl.getGroupsManagerBl().synchronizeGroup(sess, group);
-
+/*
 					if (!skippedMembers.isEmpty()) {
 						skippedMembersMessage = "These members from extSource were skipped: { ";
 
@@ -1684,7 +1691,7 @@ public class GroupsManagerBlImpl implements GroupsManagerBl {
 						}
 						skippedMembersMessage += " }";
 						exceptionMessage = skippedMembersMessage;
-					}
+					}*/
 					log.debug("Synchronization thread for group {} has finished in {} ms.", group, System.currentTimeMillis() - startTime);
 				} catch (WrongAttributeValueException | WrongReferenceAttributeValueException | InternalErrorException |
 						WrongAttributeAssignmentException  | GroupNotExistsException |
@@ -1700,17 +1707,17 @@ public class GroupsManagerBlImpl implements GroupsManagerBl {
 					exceptionMessage += "due to unexpected exception: " + e.getClass().getName() + " => " + e.getMessage();
 				} finally {
 					//Save information about group synchronization, this method run in new transaction
-					try {
+					/*try {
 						perunBl.getGroupsManagerBl().saveInformationAboutGroupSynchronization(sess, group, startTime, failedDueToException, exceptionMessage);
 					} catch (Exception ex) {
 						log.error("When synchronization group " + group + ", exception was thrown.", ex);
 						log.error("Info about exception from synchronization: {}", skippedMembersMessage);
-					}
+					}*/
 					//Remove job from running jobs
 					if(!poolOfGroupsToBeSynchronized.removeJob(group)) {
 						log.error("Can't remove running job for object " + group + " from pool of running jobs because it is not containing it.");
 					}
-
+					isRunning = false;
 					log.debug("GroupSynchronizerThread finished for group: {}", group);
 				}
 			}
